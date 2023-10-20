@@ -4,6 +4,7 @@ jQuery.fn.extend({
     refreshSuggest: function(selectedCallback, suggestLength = 10, delayMs = 3000) {
         let curVal = $(this).val();
         let suggestDiv = this.prev("div[name='_suggest']");
+        let that = this;
         if (curVal && suggestDiv.length > 0) {
             curVal = curVal.toLowerCase();
             let options = suggestDiv.attr("options");
@@ -11,26 +12,26 @@ jQuery.fn.extend({
                 let width = Math.round($(this).width());
                 let optionsHtml = "";
                 let optionList = options.split(",");
-                let matchedCount = 1;
+                let total = optionList.length;
+                let matchedCount = 0;
                 if (' ' === curVal) {// if blank, then show some without filter
-                    for (let option of optionList) {
-                        optionsHtml += `<li><input name='_suggest' val='${option}' value='${option}' style='width:${width}px' readonly/></li>`;
-                        if (++matchedCount > suggestLength) {
-                            break;
-                        }
-                    };
+                    optionList = optionList.sort();
                 } else {
-                    for (let option of optionList) {
-                        if (option.toLowerCase().indexOf(curVal) > -1) {
-                            optionsHtml += `<li><input name='_suggest' val='${option}' value='${option}' style='width:${width}px' readonly/></li>`;
-                            if (++matchedCount > suggestLength) {
-                                break;
-                            }
-                        }
-                    };
+                    optionList = optionList.filter(ele => ele.toLowerCase().indexOf(curVal) > -1).sort();
                 }
                 
+                for (let option of optionList) {
+                    optionsHtml += `<li seq='${matchedCount}'><input name='_suggest' val='${option}' value='${option}' style='width:${width}px' readonly/></li>`;
+                    if (++matchedCount > suggestLength) {
+                        break;
+                    }
+                };
+                
                 suggestDiv.find("ol[name='_suggest']").html(optionsHtml);
+                if (0 < matchedCount) {
+                    suggestDiv.find("span[name='_nums']").html(`<span name='_cur'>0</span>/<span name='_total'>${optionList.length}/${total}</span>`);
+                }
+                
 
                 function delayFadeout() {//auto fadeout when no action on suggest div
                     let prevTimeoutId = suggestDiv.attr("timeoutId");
@@ -39,60 +40,101 @@ jQuery.fn.extend({
                     }
                     let timeoutId = setTimeout(function(){
                         suggestDiv.find("ol").html("");
+                        suggestDiv.find("span[name='_nums']").html("");
                     }, delayMs);
                     suggestDiv.attr("timeoutId", timeoutId);
                 };
                 delayFadeout();
 
+                // click event
+                function clickEvent(event) {
+                    let cur = $(event.target);
+                    $(that).val(cur.val());
+                    suggestDiv.find("ol").html("");
+                    suggestDiv.find("span[name='_nums']").html("");
+                    $(that).focus();
+                    if (selectedCallback) {
+                        selectedCallback();
+                    }
+                }
                 // keyup actions
-                suggestDiv.find("input[name='_suggest']").keyup(event => {
+                function keyEvent(event) {
                     const key = event.keyCode;
                     let cur = $(event.target);
-                    if (40 === key) {//down array
-                        cur.css("backgroundColor", "");
-                        let next = cur.parent().next().find("input");
-                        if (0 === next.length) {
-                            next = cur.parent().parent().find("input").first();
+                    let seq = parseInt(cur.parent().attr("seq"));
+                    if (40 === key || 38 === key) {//down or up
+                        let now = null;
+                        if (40 === key) {//down array
+                            let lastSeq = parseInt(cur.parent().parent().find("li").last().attr("seq"));
+                            while (lastSeq - seq <= suggestLength / 4 && lastSeq + 1 < optionList.length) {
+                                cur.parent().parent().find("li").first().remove();
+                                let option = optionList[++lastSeq];
+                                let suggest = $(`<input name='_suggest' val='${option}' value='${option}' style='width:${width}px' readonly/>`);
+                                suggest.keyup(keyEvent);
+                                suggest.click(clickEvent);
+                                let li = $(`<li seq='${lastSeq}'></li>`);
+                                li.append(suggest);
+                                cur.parent().parent().append(li);
+                                lastSeq++;
+                            }
+                            now = cur.parent().next().find("input");
+                            if (0 !== now.length) {
+                                cur.css("backgroundColor", "");
+                                now.css('backgroundColor', 'lightgray');
+                                suggestDiv.find("span[name='_cur']").html(seq + 1);
+                                
+                            }
+                        } else if (38 === key) {//up array
+                            now = cur.parent().prev().find("input");
+                            if (0 !== now.length) {
+                                cur.css("backgroundColor", "");
+                                now.css('backgroundColor', 'lightgray');
+                                suggestDiv.find("span[name='_cur']").html(seq - 1);
+                                let firstSeq = parseInt(cur.parent().parent().find("li").first().attr("seq"));
+                                if (seq - firstSeq <= suggestLength / 4 && firstSeq - 1>= 0) {
+                                    cur.parent().parent().find("li").last().remove();
+                                    let option = optionList[--firstSeq];
+                                    let suggest = $(`<input name='_suggest' val='${option}' value='${option}' style='width:${width}px' readonly/>`);
+                                    suggest.keyup(keyEvent);
+                                    suggest.click(clickEvent);
+                                    let li = $(`<li seq='${firstSeq}'></li>`);
+                                    li.append(suggest);
+                                    cur.parent().parent().prepend(li);
+                                }
+                            }
+                            if (0 === seq) {
+                                cur.css("backgroundColor", "");
+                                $(that).focus().select();
+                            }
                         }
-                        next.css('backgroundColor', 'lightgray');
-                        next.focus();
-                        delayFadeout();
-                    } else if (38 === key) {//up array
-                        cur.css("backgroundColor", "");
-                        let prev = cur.parent().prev().find("input");
-                        if (0 === prev.length) {
-                            prev = cur.parent().parent().find("input").last();
-                        }
-                        prev.css('backgroundColor', 'lightgray');
-                        prev.focus();
+                        now.focus();
                         delayFadeout();
                     } else if (13 === key) {//carriage ret
-                        $(this).val(cur.val());
+                        $(that).val(cur.val());
                         suggestDiv.find("ol").html("");
-                        $(this).focus();
+                        suggestDiv.find("span[name='_nums']").html("");
+                        $(that).focus();
                         if (selectedCallback) {
                             selectedCallback();
                         }
                     }
-                });
+                }
+                suggestDiv.find("input[name='_suggest']").keyup(keyEvent);
 
                 // click action
-                suggestDiv.find("input[name='_suggest']").click(event => {
-                    let cur = $(event.target);
-                    $(this).val(cur.val());
-                    suggestDiv.find("ol").html("");
-                    $(this).focus();
-                    if (selectedCallback) {
-                        selectedCallback();
-                    }
-                });  
+                suggestDiv.find("input[name='_suggest']").click(clickEvent);  
             }
         }
     },
     addSuggest: function(options, selectedCallback, suggestLength = 10, delayMs = 3000) {
         let suggestDiv = this.prev("div[name='_suggest']");
         if (suggestDiv.length < 1) {
-            suggestDiv = $("<div name='_suggest' style='position:relative;display:inline-block;'><ol name='_suggest' style='z-index:100;position:absolute;top:1em;padding-left:1em;'></ol></div>" );
+            suggestDiv = $(`<div name='_suggest' style='position:relative;display:inline-block;'>
+                                <div style='z-index:100;position:absolute;top:1em;'>
+                                    <ol name='_suggest' style='padding-left:1em;list-style:none;margin-bottom:0;'></ol>
+                                    <span name='_nums' style='padding-left:1em;font-size: x-small;float:right;'></span>
+                                </div>
+                            </div>` );
             suggestDiv.insertBefore(this);
 
             this.keyup(event => {
@@ -127,6 +169,8 @@ jQuery.fn.extend({
                     if (last) {
                         last.css('backgroundColor', 'lightgray');
                         last.focus();
+                        let seq = parseInt(last.parent().attr("seq"));
+                        suggestDiv.find("span[name='_cur']").html(seq);
                     }
                 } else {
                     this.refreshSuggest(selectedCallback, suggestLength, delayMs);
