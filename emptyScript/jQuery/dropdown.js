@@ -129,8 +129,8 @@ jQuery.fn.extend({
     addSuggest: function(options, selectedCallback, suggestLength = 10, delayMs = 3000) {
         let suggestDiv = this.prev("div[name='_suggest']");
         if (suggestDiv.length < 1) {
-            suggestDiv = $(`<div name='_suggest' style='position:relative;display:inline-block;'>
-                                <div style='z-index:100;position:absolute;top:1em;'>
+            suggestDiv = $(`<div name='_suggest' style='position:relative;'>
+                                <div style='z-index:100;position:absolute;top:2em;'>
                                     <ol name='_suggest' style='padding-left:1em;list-style:none;margin-bottom:0;'></ol>
                                     <span name='_nums' style='padding-left:1em;font-size: x-small;float:right;'></span>
                                 </div>
