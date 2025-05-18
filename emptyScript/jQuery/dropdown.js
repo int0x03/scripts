@@ -5,7 +5,7 @@ jQuery.fn.extend({
         let curVal = $(this).val();
         let suggestDiv = this.prev("div[name='_suggest']");
         let that = this;
-        if (curVal && suggestDiv.length > 0) {
+        if (suggestDiv.length > 0) {
             curVal = curVal.toLowerCase();
             let options = suggestDiv.attr("options");
             if (options) {
@@ -14,24 +14,24 @@ jQuery.fn.extend({
                 let optionList = options.split(",");
                 let total = optionList.length;
                 let matchedCount = 0;
-                if (' ' === curVal) {// if blank, then show some without filter
+                if ('' === curVal || ' ' === curVal) {// if blank, then show some without filter
                     optionList = optionList.sort();
                 } else {
-                    optionList = optionList.filter(ele => ele.toLowerCase().indexOf(curVal) > -1).sort();
-                }
-                
+
+                }optionList = optionList.filter(ele => ele.toLowerCase().indexOf(curVal) > -1).sort((a, b) => a.length - b.length || a.localeCompare(b));
+
                 for (let option of optionList) {
                     optionsHtml += `<li seq='${matchedCount}'><input name='_suggest' val='${option}' value='${option}' style='width:${width}px' readonly/></li>`;
                     if (++matchedCount > suggestLength) {
                         break;
                     }
                 };
-                
+
                 suggestDiv.find("ol[name='_suggest']").html(optionsHtml);
                 if (0 < matchedCount) {
                     suggestDiv.find("span[name='_nums']").html(`<span name='_cur'>0</span>/<span name='_total'>${optionList.length}/${total}</span>`);
                 }
-                
+
 
                 function delayFadeout() {//auto fadeout when no action on suggest div
                     let prevTimeoutId = suggestDiv.attr("timeoutId");
@@ -82,7 +82,7 @@ jQuery.fn.extend({
                                 cur.css("backgroundColor", "");
                                 now.css('backgroundColor', 'lightgray');
                                 suggestDiv.find("span[name='_cur']").html(seq + 1);
-                                
+
                             }
                         } else if (38 === key) {//up array
                             now = cur.parent().prev().find("input");
@@ -122,7 +122,7 @@ jQuery.fn.extend({
                 suggestDiv.find("input[name='_suggest']").keyup(keyEvent);
 
                 // click action
-                suggestDiv.find("input[name='_suggest']").click(clickEvent);  
+                suggestDiv.find("input[name='_suggest']").click(clickEvent);
             }
         }
     },
@@ -176,11 +176,12 @@ jQuery.fn.extend({
                     this.refreshSuggest(selectedCallback, suggestLength, delayMs);
                 }
             });
+            this.focusin(event => {this.refreshSuggest(selectedCallback, suggestLength, delayMs);});
         }
         suggestDiv.attr("options", options);
 
         this.refreshSuggest(selectedCallback, suggestLength, delayMs);
-    }, 
+    },
     updateOptions(options, selectedCallback, suggestLength = 10, delayMs = 3000) {
         let suggestDiv = this.prev("div[name='_suggest']");
         if(suggestDiv.length > 0) {
